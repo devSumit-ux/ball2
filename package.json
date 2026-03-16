@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
@@ -13,9 +15,12 @@
     "@google/genai": "^1.45.0",
     "@openrouter/sdk": "^0.9.11",
     "@supabase/supabase-js": "^2.39.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "framer-motion": "^12.34.3",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.344.0",
+    "node-fetch": "^3.3.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
@@ -24,13 +29,13 @@
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-legacy": "^5.4.3",
+    "@vitejs/plugin-legacy": "^8.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "terser": "^5.46.0",
     "typescript": "^5.5.3",
-    "vite": "^5.4.1"
+    "vite": "^8.0.0"
   }
 }

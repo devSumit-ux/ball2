@@ -9,6 +9,7 @@ import {
   X, Upload, FileText, Loader2, Camera, Smartphone,
   Ticket, Pill, MessageCircle, ChevronLeft, Stethoscope
 } from 'lucide-react';
+import { WhatsAppAILogic } from '../services/WhatsAppAILogic';
 
 // --- Types & Mock Data ---
 
@@ -1329,12 +1330,14 @@ const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrder
 
   const formatWhatsAppText = (text: string) => {
     if (!text) return '';
-    // Bold: *text* -> <b>text</b>
-    let formatted = text.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
-    // Italic: _text_ -> <i>text</i>
+    // Bold: **text** or *text* -> <strong>text</strong>
+    let formatted = text.replace(/\*{1,2}(.*?)\*{1,2}/g, '<strong>$1</strong>');
+    // Italic: _text_ -> <em>text</em>
     formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
     // Strikethrough: ~text~ -> <del>text</del>
     formatted = formatted.replace(/~(.*?)~/g, '<del>$1</del>');
+    // Newlines: \n -> <br/>
+    formatted = formatted.replace(/\n/g, '<br/>');
     return formatted;
   };
 
@@ -1373,100 +1376,39 @@ const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrder
     setIsTyping(true);
 
     try {
-      const model = "stepfun/step-3.5-flash:free";
-
-      let prompt = text;
-      if (isImage) {
-        prompt = `[User uploaded a prescription image. The image contains the following handwritten text:
-1. Tab. Paracetamol 500 mg
-Take 1 tablet after food
-3 times a day for 3 days
-
-2. Cap. Amoxicillin 250 mg
-Take 1 capsule after food
-2 times a day for 5 days
-
-3. Syrup Cough Relief
-Take 10 ml
-2 times a day (morning & night)
-
-Please read this prescription to the user and ask which ones they want to order. Remember to check if they are in the Available medicines list.]`;
+      const isOllamaRunning = await WhatsAppAILogic.checkStatus();
+      
+      if (!isOllamaRunning) {
+        throw new Error("Ollama is not running. Please start the local AI server.");
       }
 
-      const dynamicSystemInstruction = `You are Pharmelo AI, a helpful pharmacy assistant on WhatsApp. 
-You help users order medicines and book doctor appointments.
-Available medicines: ${PRODUCTS.map(p => p.name).join(', ')}.
-Available doctors: 
-- Dr. Rajesh Sharma: General Physician, 15 yrs exp, Fee: ₹500, Available: 10AM-2PM.
-- Dr. Anita Verma: Pediatrician, 10 yrs exp, Fee: ₹700, Available: 4PM-8PM.
-- Dr. Vikram Singh: Orthopedic, 20 yrs exp, Fee: ₹800, Available: 9AM-1PM.
-
-CURRENT USER APP DATA (Frontend State):
-- Profile: Name: ${userProfile.name}, Email: ${userProfile.email}, Address: ${userProfile.address}
-- Cart: ${cart.length ? cart.map((c: any) => `${c.qty}x ${c.product.name}`).join(', ') : 'Empty'}
-- Active Bookings: ${sharedBookings.length ? sharedBookings.map((b: any) => `${b.id} (${b.items.join(', ')})`).join(' | ') : 'None'}
-- Health Records: ${sharedRecords.length ? sharedRecords.map((r: any) => `${r.type} from ${r.doctor}`).join(' | ') : 'None'}
-
-INSTRUCTIONS:
-- Use WhatsApp formatting: *bold* for emphasis, _italic_ for secondary info.
-- If a user wants to order medicine, ask for the medicine name. Once confirmed, say exactly: "ORDER_CONFIRMED: [Item1, Item2]".
-- To add items to the user's cart without placing the order yet, say exactly: "ADD_TO_CART: [Item Name]".
-- If a user wants to book a doctor, ask for the doctor name, time, patient name, address, and problem. Use the user's profile data for patient name and address if they are booking for themselves. Once confirmed, say exactly: "APPOINTMENT_CONFIRMED: [Doctor Name] at [Time]".
-- If a user asks about their current data (profile, cart, bookings, records), read it from the CURRENT USER APP DATA above and tell them.
-- If a user asks for a medicine that is NOT in the "Available medicines" list, apologize and tell them it is currently out of stock.
-- Keep your responses short, friendly, and suitable for WhatsApp. Do not use markdown (except for WhatsApp specific formatting like * and _).`;
-
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY || "vite_openrouter_api_key_not_set"}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "Pharmelo AI"
-        },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: "system", content: dynamicSystemInstruction },
-            ...aiMessages.map(m => ({
-              role: m.role,
-              content: m.content || "",
-              ...(m.reasoning_details ? { reasoning_details: m.reasoning_details } : {})
-            })),
-            { role: "user", content: prompt }
-          ],
-          reasoning: { enabled: true }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorData}`);
-      }
-
-      const data = await response.json();
-      const botMessage = data.choices[0].message;
+      // Use local Ollama AI for all chat interactions with real-time app context
+      const replyText = await WhatsAppAILogic.processIncoming(
+        text || (isImage ? "[Prescription Uploaded]" : ""),
+        {
+          user: userProfile,
+          cart: cart,
+          bookings: sharedBookings,
+          records: sharedRecords
+        }
+      );
       
-      let replyText = botMessage.content || '';
-      const botMsgId = Date.now();
+      // Process specific commands/triggers that the AI might output
+      let processedText = replyText
+        .replace(/ADD_TO_CART:?\s*\[?(.*?)\]?/g, '✅ Added to your Pharmelo cart!')
+        .replace(/ORDER_CONFIRMED:?\s*\[?(.*?)\]?/g, '✅ Order confirmed! It will be ready for pickup in 15 mins. You can track it in the Pharmelo app.')
+        .replace(/APPOINTMENT_CONFIRMED:?\s*\[?(.*?)\]?/g, '✅ Appointment confirmed! You will receive a reminder 30 minutes before your visit.');
 
-      setIsTyping(false);
-      
-      // Hide triggers from the UI
-      let displayText = replyText
-        .replace(/ADD_TO_CART:\s*\[.*?\]/g, '✅ Added to your Pharmelo cart!')
-        .replace(/ORDER_CONFIRMED:\s*\[.*?\]/g, '✅ Order confirmed! It will be ready for pickup in 15 mins. You can track it in the Pharmelo app.')
-        .replace(/APPOINTMENT_CONFIRMED:\s*\[.*?\]/g, '✅ Appointment confirmed! You will receive a reminder 30 minutes before your visit.');
-        
-      setMessages(prev => [...prev, { 
-        id: botMsgId, 
-        text: displayText, 
-        sender: 'bot', 
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
-        isImage: false 
-      }]);
+      const botMsg: WhatsAppMessage = {
+        id: Date.now() + 1,
+        text: processedText,
+        sender: 'bot',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isImage: false
+      };
+      setMessages(prev => [...prev, botMsg]);
 
-      // Process triggers after stream is complete
+      // Logic triggers based on AI response keywords
       if (replyText.includes('ADD_TO_CART:')) {
          const itemsMatch = replyText.match(/ADD_TO_CART:\s*\[(.*?)\]/);
          if (itemsMatch) {
@@ -1476,15 +1418,14 @@ INSTRUCTIONS:
       } 
       if (replyText.includes('ORDER_CONFIRMED:')) {
          const itemsMatch = replyText.match(/ORDER_CONFIRMED:\s*\[(.*?)\]/);
-         const items = itemsMatch ? itemsMatch[1].split(',').map((i: string) => i.trim()) : ['Medicines'];
+         const items = itemsMatch ? itemsMatch[1].split(',').map((i: string) => i.trim()) : ['Medicines from WhatsApp'];
          
-         const orderId = `#${Math.floor(1000 + Math.random() * 9000)}`;
          onOrderPlaced({
-            id: orderId,
+            id: `#W${Math.floor(1000 + Math.random() * 9000)}`,
             items: items,
             date: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             status: 'Ready for Pickup',
-            total: 250,
+            total: items.length * 250,
             source: 'whatsapp'
          });
       } 
@@ -1492,9 +1433,8 @@ INSTRUCTIONS:
          const detailsMatch = replyText.match(/APPOINTMENT_CONFIRMED:\s*\[(.*?)\]/);
          const details = detailsMatch ? detailsMatch[1] : 'Doctor Appointment';
          
-         const orderId = `#A${Math.floor(1000 + Math.random() * 9000)}`;
          onOrderPlaced({
-            id: orderId,
+            id: `#A${Math.floor(1000 + Math.random() * 9000)}`,
             items: [`Appointment: ${details}`],
             date: `Today`,
             status: 'Confirmed',
@@ -1503,22 +1443,18 @@ INSTRUCTIONS:
          });
       }
 
-      // Preserve the assistant message with reasoning_details
+      // Add to conversation history
       setAiMessages(prev => [
         ...prev,
-        { role: 'user', content: prompt },
-        { 
-          role: 'assistant', 
-          content: botMessage.content,
-          ...(botMessage.reasoning_details ? { reasoning_details: botMessage.reasoning_details } : {})
-        }
+        { role: 'user', content: text || "" },
+        { role: 'assistant', content: replyText }
       ]);
 
-    } catch (error: any) {
-      console.error("AI Chat Error:", error);
+    } catch (err: any) {
+      console.error("AI Error:", err);
       setMessages(prev => [...prev, { 
         id: Date.now(), 
-        text: `Sorry, I'm having trouble connecting right now. Error: ${error.message}`, 
+        text: `Error: ${err.message || 'The local brain is offline. Please ensure Ollama is running.'}`, 
         sender: 'bot', 
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
         isImage: false 
