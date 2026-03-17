@@ -6,7 +6,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const OLLAMA_URL = 'http://localhost:11434/api';
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Express top-level middleware handles preflight automatically when cors() is used
 app.use(express.json({ limit: '50mb' }));
 
 // Health check
