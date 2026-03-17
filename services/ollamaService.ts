@@ -2,7 +2,8 @@
  * Ollama Service to interact with the local Ollama API
  */
 
-const OLLAMA_URL = 'http://localhost:3001/api/ai';
+// Permanent Cloudflare Tunnel URL - never changes even after restarts
+const OLLAMA_URL = 'https://7dcb0d58-7eed-4604-9eb4-7f763dda0626.cfargotunnel.com/api/ai';
 
 export interface OllamaResponse {
   model: string;
@@ -67,7 +68,7 @@ export async function generateChatResponse(prompt: string, model: string = 'llam
  * @param base64Image Base64 encoded image string
  * @param model Multimodal model name
  */
-export async function processPrescription(base64Image: string, model: string = 'llava'): Promise<string> {
+export async function processPrescription(base64Image: string, model: string = 'llava:latest'): Promise<string> {
   try {
     const response = await fetch(`${OLLAMA_URL}/prescription`, {
       method: 'POST',
@@ -88,6 +89,6 @@ export async function processPrescription(base64Image: string, model: string = '
     return data.response;
   } catch (error) {
     console.error('Error processing prescription with Ollama:', error);
-    return "Failed to process prescription. Please ensure a multimodal model like 'llava' is installed in Ollama.";
+    throw new Error("VISION_ERROR: Process failed. Is model 'llava' installed?");
   }
 }

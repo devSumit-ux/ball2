@@ -1305,7 +1305,7 @@ interface WhatsAppMessage {
   imageUrl?: string | null;
 }
 
-const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrderPlaced, onRecordAdded, onAddToCart, onBack }: { sharedBookings: any[], sharedRecords: any[], cart: any[], userProfile: any, onOrderPlaced: (booking: any) => void, onRecordAdded: (record: any) => void, onAddToCart: (item: string) => void, onBack: () => void }) => {
+const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrderPlaced, onRecordAdded, onAddToCart, onProfileUpdate, onBack }: { sharedBookings: any[], sharedRecords: any[], cart: any[], userProfile: any, onOrderPlaced: (booking: any) => void, onRecordAdded: (record: any) => void, onAddToCart: (item: string) => void, onProfileUpdate: (profile: any) => void, onBack: () => void }) => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([
     { id: 1, text: 'Hi! I am *Pharmelo AI*. How can I help you today?\n\n1️⃣ *Order Medicine*\n2️⃣ *Book Doctor Appointment*\n3️⃣ *View Health Records*\n\nReply with 1, 2, or 3.', sender: 'bot', time: '10:00 AM', isImage: false }
   ]);
@@ -1390,14 +1390,17 @@ const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrder
           cart: cart,
           bookings: sharedBookings,
           records: sharedRecords
-        }
+        },
+        aiMessages,
+        newMsg.imageUrl || undefined
       );
       
       // Process specific commands/triggers that the AI might output
       let processedText = replyText
         .replace(/ADD_TO_CART:?\s*\[?(.*?)\]?/g, '✅ Added to your Pharmelo cart!')
         .replace(/ORDER_CONFIRMED:?\s*\[?(.*?)\]?/g, '✅ Order confirmed! It will be ready for pickup in 15 mins. You can track it in the Pharmelo app.')
-        .replace(/APPOINTMENT_CONFIRMED:?\s*\[?(.*?)\]?/g, '✅ Appointment confirmed! You will receive a reminder 30 minutes before your visit.');
+        .replace(/APPOINTMENT_CONFIRMED:?\s*\[?(.*?)\]?/g, '✅ Appointment confirmed! Details recorded in your bookings.')
+        .replace(/CHANGE_NAME:?\s*\[?(.*?)\]?/g, '✅ Name updated successfully!');
 
       const botMsg: WhatsAppMessage = {
         id: Date.now() + 1,
@@ -1416,6 +1419,12 @@ const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrder
             items.forEach((item: string) => onAddToCart(item));
          }
       } 
+      if (replyText.includes('CHANGE_NAME:')) {
+         const nameMatch = replyText.match(/CHANGE_NAME:\s*\[?(.*?)\]?/);
+         if (nameMatch && nameMatch[1]) {
+            onProfileUpdate({ ...userProfile, name: nameMatch[1].trim() });
+         }
+      }
       if (replyText.includes('ORDER_CONFIRMED:')) {
          const itemsMatch = replyText.match(/ORDER_CONFIRMED:\s*\[(.*?)\]/);
          const items = itemsMatch ? itemsMatch[1].split(',').map((i: string) => i.trim()) : ['Medicines from WhatsApp'];
@@ -1430,7 +1439,7 @@ const WhatsAppApp = ({ sharedBookings, sharedRecords, cart, userProfile, onOrder
          });
       } 
       if (replyText.includes('APPOINTMENT_CONFIRMED:')) {
-         const detailsMatch = replyText.match(/APPOINTMENT_CONFIRMED:\s*\[(.*?)\]/);
+         const detailsMatch = replyText.match(/APPOINTMENT_CONFIRMED:\s*\[?(.*?)\]?/);
          const details = detailsMatch ? detailsMatch[1] : 'Doctor Appointment';
          
          onOrderPlaced({
@@ -1910,7 +1919,7 @@ const WishlistFeature: React.FC = () => {
                         <div className={`absolute inset-0 transition-opacity duration-300 ${activeApp === 'pharmelo' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
                            <PharmeloApp sharedBookings={sharedBookings} setSharedBookings={setSharedBookings} sharedRecords={sharedRecords} activeTab={pharmeloTab} setActiveTab={setPharmeloTab} onBack={() => setActiveApp('home')} cart={cart} setCart={setCart} userProfile={userProfile} setUserProfile={setUserProfile} />
                         </div>
-                        
+
                         {/* WhatsApp App */}
                         <div className={`absolute inset-0 transition-opacity duration-300 ${activeApp === 'whatsapp' ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}>
                            <WhatsAppApp sharedBookings={sharedBookings} sharedRecords={sharedRecords} cart={cart} userProfile={userProfile} onAddToCart={(itemName) => {
@@ -1929,14 +1938,14 @@ const WishlistFeature: React.FC = () => {
                               const isDoctor = booking.items[0]?.includes('Appointment');
                               setPushNotification({
                                 title: isDoctor ? 'Appointment Confirmed!' : 'Order Confirmed!',
-                                message: isDoctor 
+                                message: isDoctor
                                   ? `Your ${booking.items[0]} is confirmed.`
                                   : `Your prescription order ${booking.id} has been placed successfully.`
                               });
                               setTimeout(() => setPushNotification(null), 5000);
                            }} onRecordAdded={(record) => {
                               setSharedRecords(prev => [record, ...prev]);
-                           }} onBack={() => setActiveApp('home')} />
+                           }} onProfileUpdate={(p) => setUserProfile(p)} onBack={() => setActiveApp('home')} />
                         </div>
 
                         {/* Doctor App */}
