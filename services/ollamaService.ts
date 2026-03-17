@@ -3,7 +3,7 @@
  */
 
 // Automatically uses localhost in local dev, and the Cloudflare tunnel in production
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://lance-limit-tough-obligations.trycloudflare.com';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://africa-participating-gibson-relatives.trycloudflare.com';
 const OLLAMA_URL = `${BACKEND_URL}/api/ai`;
 
 export interface OllamaResponse {

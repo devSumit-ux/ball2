@@ -76,11 +76,13 @@ const GlobalAudioPlayer: React.FC = () => {
         // 2. If not cached, generate it
         if (!base64Audio) {
           const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
-          if (!apiKey) {
-            console.error("GEMINI_API_KEY is missing. Please set VITE_GEMINI_API_KEY in your environment.");
+          
+          if (!apiKey || apiKey.includes('your_') || apiKey === 'undefined') {
+            console.warn("Gemini TTS skipped: VITE_GEMINI_API_KEY is not configured.");
             setIsLoading(false);
             return;
           }
+
           const ai = new GoogleGenAI({ apiKey });
           const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
