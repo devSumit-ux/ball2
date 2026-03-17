@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { GoogleGenAI } from '@google/genai';
 import { getStoredAudio, storeAudio } from '../services/audioService';
 import { Play, Pause, Volume2, VolumeX, Sparkles } from 'lucide-react';
 
@@ -73,36 +72,11 @@ const GlobalAudioPlayer: React.FC = () => {
         // 1. Check for cached audio (IndexedDB + Supabase)
         let base64Audio = await getStoredAudio(cacheKey);
 
-        // 2. If not cached, generate it
+        // 2. Generation disabled (moved to local Ollama/PM2 backend)
         if (!base64Audio) {
-          const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
-          
-          if (!apiKey || apiKey.includes('your_') || apiKey === 'undefined') {
-            console.warn("Gemini TTS skipped: VITE_GEMINI_API_KEY is not configured.");
-            setIsLoading(false);
-            return;
-          }
-
-          const ai = new GoogleGenAI({ apiKey });
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: prompt }] }],
-            config: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' },
-                  },
-              },
-            },
-          });
-
-          base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-          
-          if (base64Audio) {
-            // Save to backend and local cache
-            await storeAudio(cacheKey, base64Audio);
-          }
+          console.log("Audio not in cache. Local TTS generation not configured for browser.");
+          setIsLoading(false);
+          return;
         }
 
         // 3. Convert base64 to Blob URL

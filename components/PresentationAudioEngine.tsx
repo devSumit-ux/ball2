@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { GoogleGenAI } from '@google/genai';
 import { get, set } from 'idb-keyval';
 
 // Helper to wrap raw 16-bit PCM data in a WAV file format
@@ -62,35 +61,10 @@ const PresentationAudioEngine: React.FC<PresentationAudioEngineProps> = ({ curre
         const cachedBase64 = await get(cacheKey);
         let base64Audio = cachedBase64;
 
-        // 2. If not cached, generate it
+        // 2. Generation disabled (moved to local Ollama)
         if (!base64Audio) {
-          const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-          
-          if (!apiKey || apiKey.includes('your_') || apiKey === 'undefined') {
-            console.warn("Presentation Audio Engine skipped: Gemini API Key not found.");
-            return;
-          }
-
-          const ai = new GoogleGenAI({ apiKey });
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: prompt }] }],
-            config: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' },
-                  },
-              },
-            },
-          });
-
-          base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-          
-          if (base64Audio) {
-            // Save to IndexedDB for future use
-            await set(cacheKey, base64Audio);
-          }
+          console.log("Engine audio not in cache. Generation disabled.");
+          return;
         }
 
         // 3. Convert base64 to Blob URL
