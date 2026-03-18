@@ -7,11 +7,17 @@ const PORT = process.env.PORT || 3001;
 const OLLAMA_URL = 'http://localhost:11434/api';
 
 app.use(cors({
-  origin: '*',
+  origin: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+// Added Debug Logger to verify Vercel connection
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url} - Origin: ${req.get('Origin') || 'No Origin'}`);
+  next();
+});
 
 // Add a catch-all OPTIONS handler for preflight, compatible with Express 5
 app.options(/.*/, cors());
