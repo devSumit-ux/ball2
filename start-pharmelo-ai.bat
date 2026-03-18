@@ -10,6 +10,15 @@ pm2 start ecosystem.config.cjs
 pm2 save
 
 :: Start the Cloudflare tunnel in the background (Quick Tunnel with config isolation)
-start "" /B ".\cloudflared.exe" tunnel --url http://localhost:3001 --config ""
+start "" /B ".\cloudflared.exe" tunnel --url http://localhost:3001 --logfile tunnel-quick.log
 
 echo Pharmelo AI Server and Cloudflare Tunnel started!
+echo.
+echo Waiting for Cloudflare Tunnel URL...
+timeout /t 5 >nul
+echo.
+echo --- YOUR PUBLIC URL IS BELOW ---
+powershell -Command "Select-String -Path 'tunnel-quick.log' -Pattern 'trycloudflare.com' | Select-Object -Last 1"
+echo ---------------------------------
+echo.
+pause

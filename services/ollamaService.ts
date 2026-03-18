@@ -2,8 +2,9 @@
  * Ollama Service to interact with the local Ollama API
  */
 
-// Automatically uses localhost in local dev, and the Cloudflare tunnel in production
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://africa-participating-gibson-relatives.trycloudflare.com';
+// Configures the backend URL. In development, it defaults to the local server.
+// In production, this should be set via environment variables.
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''; 
 const OLLAMA_URL = `${BACKEND_URL}/api/ai`;
 
 export interface OllamaResponse {
