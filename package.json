@@ -12,8 +12,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.45.0",
-    "@openrouter/sdk": "^0.9.11",
     "@supabase/supabase-js": "^2.39.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
